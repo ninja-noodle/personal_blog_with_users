@@ -1,50 +1,31 @@
-import os
+from io import BytesIO
 from dotenv import load_dotenv
 from datetime import date
-from flask import Flask, abort, render_template, redirect, url_for, flash
+from flask import Flask, abort, render_template, redirect, url_for, flash, send_file
 from flask_bootstrap import Bootstrap5
 from flask_ckeditor import CKEditor
-from flask_gravatar import Gravatar
 from flask_login import UserMixin, login_user, LoginManager, current_user, logout_user
 from flask_sqlalchemy import SQLAlchemy
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from sqlalchemy.orm import relationship
-# Import your forms from the forms.py
+import pydenticon
+import hashlib
 from forms import CreatePostForm, RegisterForm, LoginForm, CommentForm
 
-'''
-Make sure the required packages are installed: 
-Open the Terminal in PyCharm (bottom left). 
-
-On Windows type:
-python -m pip install -r requirements.txt
-
-On MacOS type:
-pip3 install -r requirements.txt
-
-This will install the packages from the requirements.txt for this project.
-'''
 
 app = Flask(__name__)
 load_dotenv("/.venv/.env")
-app.config['SECRET_KEY'] = os.getenv("SecretKey")
+app.config['SECRET_KEY'] = '8BYkEfBA6O6donzWlSihBXox7C0sKR6b'
 ckeditor = CKEditor(app)
-gravater = Gravatar(app,
-                    size=100,
-                    rating='g',
-                    default='retro',
-                    force_default=False,
-                    force_lower=False,
-                    use_ssl=False,
-                    base_url=None)
+
 Bootstrap5(app)
 
 login_manager = LoginManager()
 login_manager.init_app(app)
 
 # CONNECT TO DB
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DB_URL")
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///posts.db'
 db = SQLAlchemy()
 db.init_app(app)
 
@@ -64,6 +45,7 @@ def login_check(email, password):
         return 'false_password'
     elif user_check is not None and check_password_hash(user_check.password, password) is True:
         return 'true'
+    return None
 
 
 def admin_only(f):
@@ -118,6 +100,18 @@ class Comment(db.Model):
 
 with app.app_context():
     db.create_all()
+
+
+# avatar generator
+generator = pydenticon.Generator(5, 5, digest=hashlib.sha1, 
+    foreground=["#1abc9c", "#2ecc71", "#3498db", "#9b59b6", "#34495e"],
+    background="#ecf0f1")
+
+
+@app.route('/avatar/<username>.png')
+def avatar(username):
+    image = generator.generate(username, 30, 30, output_format="png")
+    return send_file(BytesIO(image), mimetype='image/png')
 
 
 @login_manager.user_loader
